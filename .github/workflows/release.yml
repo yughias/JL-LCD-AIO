@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up MinGW-w64 (WinLibs)
+        uses: bwoodsend/setup-winlibs-action@v1
+        with:
+          architecture: x86_64
+          threads: posix
+          runtime: ucrt
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DBUILD_APP=ON -DBUILD_DRIVER_EXAMPLES=ON
+
+      - name: Build All Targets
+        run: |
+          cmake --build build --config Release -j 4
+
+      - name: Package Release
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if (-not $tag) { $tag = "latest" }
+          $packageName = "jl_lcd_aio-$tag-windows-x64"
+          New-Item -ItemType Directory -Path $packageName
+
+          # Main application
+          Copy-Item "build/lcd_aio.exe" "$packageName/"
+
+          # Standalone driver examples
+          New-Item -ItemType Directory -Path "$packageName/examples"
+          Get-ChildItem -Path "build/*.exe" -Exclude "lcd_aio.exe" | Copy-Item -Destination "$packageName/examples/"
+
+          # Documentation, license & header
+          Copy-Item "README.md" "$packageName/"
+          Copy-Item "LICENSE" "$packageName/"
+          Copy-Item "jl_lcd.h" "$packageName/"
+
+          # Compress to zip
+          Compress-Archive -Path "$packageName/*" -DestinationPath "$packageName.zip" -Force
+          Write-Host "Created archive: $packageName.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: jl_lcd_aio-*-windows-x64.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false

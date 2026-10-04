@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  build:
+    name: Build on Windows (MinGW-w64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up MinGW-w64 (WinLibs)
+        uses: bwoodsend/setup-winlibs-action@v1
+        with:
+          architecture: x86_64
+          threads: posix
+          runtime: ucrt
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DBUILD_APP=ON -DBUILD_DRIVER_EXAMPLES=ON
+
+      - name: Build All Targets
+        run: |
+          cmake --build build --config Release -j 4
+
+      - name: Verify Executables
+        shell: pwsh
+        run: |
+          if (!(Test-Path "build/lcd_aio.exe")) {
+            throw "lcd_aio.exe was not found in build/!"
+          }
+          if (!(Test-Path "build/benchmark.exe")) {
+            throw "benchmark.exe was not found in build/!"
+          }
+          Write-Host "All targets verified successfully."
