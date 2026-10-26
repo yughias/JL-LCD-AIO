@@ -1,7 +1,7 @@
 # JL USB LCD Display Driver & AIO System Monitor
 
-[![CI](https://github.com/yughias/jl_lcd/actions/workflows/ci.yml/badge.svg)](https://github.com/yughias/jl_lcd/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/yughias/jl_lcd?include_prereleases&style=flat-square)](https://github.com/yughias/jl_lcd/releases)
+[![CI](https://github.com/yughias/JL-LCD-AIO/actions/workflows/ci.yml/badge.svg)](https://github.com/yughias/JL-LCD-AIO/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/yughias/JL-LCD-AIO?include_prereleases&style=flat-square)](https://github.com/yughias/JL-LCD-AIO/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-blue.svg?style=flat-square)](https://microsoft.com/windows)
 [![Resolution](https://img.shields.io/badge/resolution-960%C3%97480-orange.svg?style=flat-square)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
