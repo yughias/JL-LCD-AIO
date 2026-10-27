@@ -17,6 +17,7 @@ public:
 
     bool IsDisplayDisabled() const;
     void SetDisplayDisabled(bool disabled);
+    bool ConsumeToggleDisplay();
 
     void OpenFileDialog();
     bool PickCustomColor(uint32_t* in_out_color);

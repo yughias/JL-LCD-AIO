@@ -19,6 +19,7 @@ public:
     void SetBrightness(int brightness);
     void SetJpegQuality(float quality);
     void Show(bool visible);
+    bool IsShown() const;
 
     static void TransformFrame(const uint8_t* src_rgba, int w, int h,
                                uint8_t* dst_bgra,

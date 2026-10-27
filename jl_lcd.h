@@ -714,19 +714,16 @@ void jl_show(jl_panel_t* p, bool show) {
     p->is_shown = show;
 
     if (!show) {
-        // Turning off display: send EOI and close serial port handle
-        // This drops DTR/RTS and USB session, triggering hardware display standby
+        // Turning off display: send EOI to flush decoder and stop transmission
         if (p->hSerial != INVALID_HANDLE_VALUE && p->hSerial != NULL) {
             uint8_t eoi[2] = {0xFF, 0xD9};
             DWORD w;
             WriteFile(p->hSerial, eoi, 2, &w, NULL);
             FlushFileBuffers(p->hSerial);
-            CloseHandle(p->hSerial);
-            p->hSerial = INVALID_HANDLE_VALUE;
         }
         p->has_new_frame = false;
     } else {
-        // Turning on display: re-open COM port and re-initialize DCB & timeouts
+        // Turning on display: re-open COM port if it was closed, otherwise trigger keepalive
         if (p->hSerial == INVALID_HANDLE_VALUE || p->hSerial == NULL) {
             HANDLE h = CreateFileA(p->port_name, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
             if (h != INVALID_HANDLE_VALUE) {
@@ -744,9 +741,9 @@ void jl_show(jl_panel_t* p, bool show) {
                 timeouts.ReadTotalTimeoutConstant = 50;
                 SetCommTimeouts(h, &timeouts);
                 p->hSerial = h;
-                p->last_keepalive = 0; // Trigger keepalive immediately
             }
         }
+        p->last_keepalive = 0; // Trigger keepalive immediately
     }
     LeaveCriticalSection(&p->cs);
 }
@@ -801,21 +798,6 @@ bool jl_set_brightness(jl_panel_t* p, int percent) {
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
 
-    if (percent == 0) {
-        EnterCriticalSection(&p->cs);
-        if (p->hSerial != INVALID_HANDLE_VALUE && p->hSerial != NULL) {
-            uint8_t zero_cmd[] = { 0x55, 0xAA, 0x08, 0x00, JL_CMD_SET_LIGHT, 0x00, 0x0B, 0x01 };
-            write_all(p->hSerial, zero_cmd, sizeof(zero_cmd));
-        }
-        LeaveCriticalSection(&p->cs);
-        jl_show(p, false);
-        return true;
-    }
-
-    if (!jl_is_shown(p)) {
-        jl_show(p, true);
-    }
-
     EnterCriticalSection(&p->cs);
     if (p->hSerial != INVALID_HANDLE_VALUE && p->hSerial != NULL) {
         // 1. Flush active JPEG frame decoder so the microcontroller returns to command mode
@@ -840,11 +822,18 @@ bool jl_set_brightness(jl_panel_t* p, int percent) {
         write_all(p->hSerial, frame, sizeof(frame));
         Sleep(50);
 
-        // 3. Re-arm live streaming mode (0x11)
-        uint8_t live_cmd[] = { 0x55, 0xAA, 0x07, 0x00, 0x11, 0x17, 0x01 };
-        write_all(p->hSerial, live_cmd, sizeof(live_cmd));
-        p->last_keepalive = GetTickCount();
-        Sleep(20);
+        if (percent > 0) {
+            // 3. Re-arm live streaming mode (0x11)
+            uint8_t live_cmd[] = { 0x55, 0xAA, 0x07, 0x00, 0x11, 0x17, 0x01 };
+            write_all(p->hSerial, live_cmd, sizeof(live_cmd));
+            p->last_keepalive = GetTickCount();
+            Sleep(20);
+        } else {
+            // 3. Send JL_CMD_CLOSE (0x21) for firmware standby
+            uint8_t close_cmd[] = { 0x55, 0xAA, 0x07, 0x00, JL_CMD_CLOSE, 0x27, 0x01 };
+            write_all(p->hSerial, close_cmd, sizeof(close_cmd));
+            Sleep(20);
+        }
     }
     LeaveCriticalSection(&p->cs);
 

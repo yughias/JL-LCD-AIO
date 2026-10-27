@@ -50,6 +50,13 @@ void JLPanel::Show(bool visible) {
     }
 }
 
+bool JLPanel::IsShown() const {
+    if (m_panel) {
+        return jl_is_shown(m_panel);
+    }
+    return false;
+}
+
 void JLPanel::TransformFrame(const uint8_t* src_rgba, int w, int h,
                              uint8_t* dst_bgra,
                              int rotation, bool flip_x, bool flip_y,

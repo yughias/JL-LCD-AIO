@@ -165,7 +165,7 @@ public:
             }
         });
         if (m_cfg.brightness == 0) {
-            m_tray.SetDisplayDisabled(true);
+            SetDisplaySleep(true);
         }
 
         // Load background media
@@ -190,6 +190,9 @@ public:
 
             // Handle system tray and sleep / wake
             m_tray.Update();
+            if (m_tray.ConsumeToggleDisplay()) {
+                ToggleDisplaySleep();
+            }
 
             // Process user input and shortcuts
             ProcessInput(dt);
@@ -321,6 +324,34 @@ public:
         }
     }
 
+    void SetDisplaySleep(bool sleep) {
+        m_tray.SetDisplayDisabled(sleep);
+        if (m_panel.IsOpen()) {
+            if (sleep) {
+                // 1. Push a solid black frame to clear the LCD panel memory
+                if (m_panelPixels) {
+                    memset(m_panelPixels, 0, 960 * 480 * 4);
+                    m_panel.PushSurfaceAsync(m_panelPixels, 960, 480);
+                    TrayManager::Sleep(40);
+                }
+                // 2. Set backlight to 0 (sleep / turn off) and send close/standby command
+                m_panel.SetBrightness(0);
+                // 3. Pause frame transmission in worker thread
+                m_panel.Show(false);
+            } else {
+                // 1. Re-enable panel showing
+                m_panel.Show(true);
+                // 2. Restore backlight
+                int target_b = (m_cfg.brightness > 0) ? m_cfg.brightness : 100;
+                m_panel.SetBrightness(target_b);
+            }
+        }
+    }
+
+    void ToggleDisplaySleep() {
+        SetDisplaySleep(!m_tray.IsDisplayDisabled());
+    }
+
 private:
     void SetEditorActive(bool active) {
         if (m_editorActive == active) return;
@@ -381,12 +412,7 @@ private:
 
             // Toggle Display Standby with [D]
             if (IsKeyPressed(KEY_D)) {
-                bool next_disabled = !m_tray.IsDisplayDisabled();
-                m_tray.SetDisplayDisabled(next_disabled);
-                if (!next_disabled && m_cfg.brightness == 0) {
-                    m_cfg.brightness = 100;
-                    if (m_panel.IsOpen()) m_panel.SetBrightness(m_cfg.brightness);
-                }
+                ToggleDisplaySleep();
             }
 
             // File dialog with [B]
@@ -930,7 +956,7 @@ private:
                     SetEditorActive(!m_editorActive);
                 }
                 if (ImGui::MenuItem("Display Sleep / Standby", "D", m_tray.IsDisplayDisabled())) {
-                    m_tray.SetDisplayDisabled(!m_tray.IsDisplayDisabled());
+                    ToggleDisplaySleep();
                 }
                 if (auto* vis = m_widgets.FindWidget("visualizer")) {
                     bool vis_en = vis->IsEnabled();
@@ -1015,7 +1041,13 @@ private:
             int b = m_cfg.brightness;
             if (ImGui::SliderInt("Brightness", &b, 0, 100, "%d%%")) {
                 m_cfg.brightness = b;
-                if (m_panel.IsOpen()) m_panel.SetBrightness(b);
+                if (b > 0 && m_tray.IsDisplayDisabled()) {
+                    SetDisplaySleep(false);
+                } else if (b == 0 && !m_tray.IsDisplayDisabled()) {
+                    SetDisplaySleep(true);
+                } else if (m_panel.IsOpen() && !m_tray.IsDisplayDisabled()) {
+                    m_panel.SetBrightness(b);
+                }
                 changed = true;
             }
 
@@ -1047,12 +1079,17 @@ private:
             if (ImGui::Checkbox("Flip Vertical", &m_cfg.flip_y)) changed = true;
 
             ImGui::Separator();
+            if (m_tray.IsDisplayDisabled()) {
+                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "LCD Status: OFF (Standby)");
+            } else {
+                ImGui::TextColored(ImVec4(0.2f, 0.9f, 0.4f, 1.0f), "LCD Status: ON (Active)");
+            }
             if (ImGui::Button("Turn Off Display (Sleep)")) {
-                m_tray.SetDisplayDisabled(true);
+                SetDisplaySleep(true);
             }
             ImGui::SameLine();
             if (ImGui::Button("Turn On Display")) {
-                m_tray.SetDisplayDisabled(false);
+                SetDisplaySleep(false);
             }
 
             if (changed) {

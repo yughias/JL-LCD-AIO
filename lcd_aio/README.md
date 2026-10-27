@@ -87,7 +87,7 @@ Based on the AIO theme:
 | **`[D]`** | Mute display / Toggle physical LCD sleep (0% CPU standby) |
 | **`[M]`** | Toggle CAVA audio visualizer |
 | **Window `[X]`** | Minimizes application directly to system tray |
-| **Tray Icon** | Right-click for quick actions; double-click to restore/minimize window |
+| **Tray Icon** | Right-click for quick actions (Show/Hide Window, Turn ON/OFF LCD, Exit); double-click to restore/minimize window |
 
 ### Command-line Arguments
 

@@ -31,6 +31,7 @@ static TrayManager::ChangeBgCallback s_on_change_bg;
 static bool s_display_disabled = false;
 static bool s_should_exit = false;
 static bool s_pending_open_file = false;
+static bool s_pending_toggle_display = false;
 static bool s_pending_toggle_edit = false;
 static bool s_pending_pick_stream = false;
 static int s_active_fill_mode = 0;
@@ -57,6 +58,7 @@ void show_tray_context_menu() {
 
     bool is_visible = IsWindowVisible(s_hwnd) && !IsIconic(s_hwnd);
     AppendMenuA(hMenu, MF_STRING, ID_TRAY_RESTORE_WINDOW, is_visible ? "Hide Window" : "Show Window");
+    AppendMenuA(hMenu, MF_STRING, ID_TRAY_DISABLE_DISPLAY, s_display_disabled ? "Turn ON LCD Display" : "Turn OFF LCD Display");
     AppendMenuA(hMenu, MF_SEPARATOR, 0, nullptr);
     AppendMenuA(hMenu, MF_STRING, ID_TRAY_EXIT, "Exit LCD AIO");
 
@@ -97,8 +99,7 @@ LRESULT CALLBACK tray_subclass_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         case WM_COMMAND: {
             WORD id = LOWORD(wParam);
             if (id == ID_TRAY_DISABLE_DISPLAY) {
-                s_display_disabled = !s_display_disabled;
-                update_tray_tooltip();
+                s_pending_toggle_display = true;
                 return 0;
             } else if (id == ID_TRAY_RESTORE_WINDOW) {
                 if (IsWindowVisible(hwnd) && !IsIconic(hwnd)) {
@@ -288,6 +289,12 @@ bool TrayManager::PickCustomColor(uint32_t* in_out_color) {
         return true;
     }
     return false;
+}
+
+bool TrayManager::ConsumeToggleDisplay() {
+    bool p = s_pending_toggle_display;
+    s_pending_toggle_display = false;
+    return p;
 }
 
 bool TrayManager::ConsumeToggleEdit() {
